@@ -42,8 +42,15 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; overflow: hidden; font-family: var(--font); background: var(--bg); color: var(--text); }
+html, body { height: 100%; overflow: hidden; font-family: var(--font); background: var(--bg); color: var(--text); -webkit-user-select: none; user-select: none; }
 body { display: flex; flex-direction: column; }
+
+/* 文字選択は編集画面だけ許可 */
+#editor-overlay,
+#editor-overlay * {
+  -webkit-user-select: text;
+  user-select: text;
+}
 
 /* LOCK SCREEN */
 #lock-screen {
@@ -271,6 +278,14 @@ body { display: flex; flex-direction: column; }
 .viewer-meta { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--text-muted); font-size: 0.9rem; }
 .viewer-title { font-size: 1.6rem; font-weight: 600; margin-bottom: 16px; line-height: 1.3; }
 .viewer-body { font-size: 1.05rem; line-height: 1.75; white-space: pre-wrap; }
+.viewer-body a {
+  color: #3b82f6;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.viewer-body a:visited { color: #3b82f6; }
 .viewer-images { display: flex; gap: 8px; overflow-x: auto; margin: 20px 0; padding-bottom: 8px; }
 .viewer-img { height: 200px; border-radius: 12px; object-fit: cover; flex-shrink: 0; cursor: pointer; }
 
@@ -307,16 +322,6 @@ body { display: flex; flex-direction: column; }
   text-align: center; padding: 60px 20px; color: var(--text-muted);
 }
 </style>
-
-  <!-- PWA Essential Settings (Auto-generated) -->
-  <link rel="manifest" href="manifest.json">
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js');
-      });
-    }
-  </script>
 </head>
 <body>
 <!-- LOCK SCREEN -->
@@ -556,6 +561,27 @@ async function loadAll() {
   });
   if (cfg) config = { ...config, ...cfg };
   entries.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+function escapeHtml(text) {
+  return String(text ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[ch]));
+}
+
+function linkifyText(text) {
+  const escaped = escapeHtml(text);
+  const urlPattern = /https?:\/\/[^\s<]+/gi;
+  return escaped.replace(urlPattern, url => {
+    const trailing = url.match(/[.,!?;:、。！？）】》」』]+$/)?.[0] || '';
+    const cleanUrl = trailing ? url.slice(0, -trailing.length) : url;
+    if (!cleanUrl) return url;
+    return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">${cleanUrl}</a>${trailing}`;
+  });
 }
 
 async function saveEntryToDB(entry) {
@@ -913,7 +939,7 @@ function openViewer(id) {
       <span>${['','😭 最悪','😡 怒り','😐 普通','😊 良好','🤩 最高'][e.mood]||''}</span>
     </div>
     <div class="viewer-title">${e.title}</div>
-    <div class="viewer-body">${e.content.replace(/\n/g,'<br>')}</div>
+    <div class="viewer-body">${linkifyText(e.content).replace(/\n/g,'<br>')}</div>
     ${e.images && e.images.length ? `<div class="viewer-images">${e.images.map(src => `<img class="viewer-img" src="${src}" onclick="openImgModal('${src}')">`).join('')}</div>` : ''}
     ${e.tags && e.tags.length ? `<div style="margin-top:16px">${e.tags.map(t => `<span style="background:var(--accent-soft);color:var(--accent);padding:4px 10px;border-radius:999px;font-size:0.8rem;margin-right:6px">#${t}</span>`).join('')}</div>` : ''}
   `;
