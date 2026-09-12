@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f0f12">
+<title>Lumina — Private Journal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f0f12;
+  --bg-elevated: #18181c;
+  --bg-card: #1e1e24;
+  --border: rgba(255,255,255,0.06);
+  --text: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --accent: #a78bfa;
+  --accent-soft: rgba(167,139,250,0.15);
+  --success: #34d399;
+  --danger: #f87171;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 8px 32px rgba(0,0,0,0.4);
+  --font: 'Inter', 'Noto Sans JP', system-ui, sans-serif;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+[data-theme="light"] {
+  --bg: #fafafa;
+  --bg-elevated: #ffffff;
+  --bg-card: #ffffff;
+  --border: rgba(0,0,0,0.06);
+  --text: #18181b;
+  --text-secondary: #52525b;
+  --text-muted: #a1a1aa;
+  --accent: #7c3aed;
+  --accent-soft: rgba(124,58,237,0.1);
+  --shadow: 0 8px 32px rgba(0,0,0,0.08);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; font-family: var(--font); background: var(--bg); color: var(--text); }
+body { display: flex; flex-direction: column; }
+
+/* LOCK SCREEN */
+#lock-screen {
+  position: fixed; inset: 0; z-index: 9999;
+  background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: opacity 0.4s ease;
+}
+#lock-screen.hidden { opacity: 0; pointer-events: none; }
+.lock-logo { font-size: 3.2rem; font-weight: 300; letter-spacing: -0.04em; margin-bottom: 8px; }
+.lock-sub { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 48px; }
+.pin-dots { display: flex; gap: 16px; margin-bottom: 40px; }
+.pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--text-muted); transition: all 0.2s; }
+.pin-dot.filled { background: var(--accent); border-color: var(--accent); transform: scale(1.15); }
+.pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 280px; }
+.pin-btn {
+  height: 68px; border-radius: 50%; background: var(--bg-elevated);
+  border: 1px solid var(--border); color: var(--text); font-size: 1.5rem; font-weight: 500;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: all 0.15s;
+}
+.pin-btn:active { transform: scale(0.92); background: var(--accent-soft); }
+.pin-btn.empty { background: transparent; border: none; }
+
+/* APP SHELL */
+#app { display: none; flex-direction: column; height: 100%; }
+#app.active { display: flex; }
+
+.app-header {
+  padding: 16px 20px 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.header-title { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; }
+.header-actions { display: flex; gap: 8px; }
+.icon-btn {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
+}
+.icon-btn:active { transform: scale(0.92); background: var(--accent-soft); color: var(--accent); }
+
+.main-content {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 0 0 calc(80px + var(--safe-bottom));
+  -webkit-overflow-scrolling: touch;
+}
+
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: rgba(15,15,18,0.92); backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: space-around; align-items: center;
+  padding: 8px 0 calc(8px + var(--safe-bottom));
+  z-index: 100;
+}
+[data-theme="light"] .bottom-nav { background: rgba(255,255,255,0.92); }
+.nav-item {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 6px 12px; color: var(--text-muted); font-size: 0.7rem; font-weight: 500;
+  cursor: pointer; transition: color 0.2s; border: none; background: none;
+}
+.nav-item.active { color: var(--accent); }
+.nav-item svg { width: 22px; height: 22px; }
+
+.view { display: none; padding: 20px; animation: fadeIn 0.3s ease; }
+.view.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.greeting { font-size: 1.6rem; font-weight: 600; letter-spacing: -0.03em; margin-bottom: 4px; }
+.greeting-sub { color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 24px; }
+.streak-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent-soft); color: var(--accent);
+  padding: 6px 12px; border-radius: 999px; font-size: 0.85rem; font-weight: 600;
+  margin-bottom: 28px;
+}
+
+.section-title {
+  font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;
+}
+
+.card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px; margin-bottom: 12px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.card:active { transform: scale(0.985); }
+
+.entry-card { cursor: pointer; }
+.entry-date { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; }
+.entry-title { font-weight: 600; font-size: 1.05rem; margin-bottom: 6px; line-height: 1.3; }
+.entry-preview { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.entry-mood { font-size: 1.3rem; float: right; }
+
+.on-this-day {
+  background: linear-gradient(135deg, var(--accent-soft), transparent);
+  border: 1px solid rgba(167,139,250,0.25);
+  border-radius: var(--radius); padding: 18px; margin-bottom: 28px;
+}
+.on-this-day-label { font-size: 0.75rem; font-weight: 600; color: var(--accent); margin-bottom: 8px; }
+
+.fab {
+  position: fixed; bottom: calc(80px + var(--safe-bottom)); right: 20px;
+  width: 56px; height: 56px; border-radius: 18px;
+  background: var(--accent); color: white;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 24px rgba(167,139,250,0.4);
+  border: none; cursor: pointer; z-index: 90;
+  transition: transform 0.2s;
+}
+.fab:active { transform: scale(0.9); }
+.fab svg { width: 24px; height: 24px; }
+
+.search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+.search-input {
+  flex: 1; background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px 16px; color: var(--text); font-size: 0.95rem;
+  outline: none;
+}
+.search-input:focus { border-color: var(--accent); }
+
+.mood-filters { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; }
+.mood-chip {
+  flex-shrink: 0; padding: 6px 14px; border-radius: 999px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
+}
+.mood-chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-day-name { text-align: center; font-size: 0.7rem; color: var(--text-muted); padding: 8px 0; }
+.cal-day {
+  aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  border-radius: 10px; font-size: 0.9rem; cursor: pointer; position: relative;
+  transition: background 0.15s;
+}
+.cal-day:hover { background: var(--bg-elevated); }
+.cal-day.has-entry::after {
+  content: ''; position: absolute; bottom: 4px; width: 4px; height: 4px;
+  border-radius: 50%; background: var(--accent);
+}
+.cal-day.today { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+.gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.gallery-img {
+  aspect-ratio: 1; object-fit: cover; border-radius: 8px; cursor: pointer;
+  width: 100%; background: var(--bg-elevated);
+}
+
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px; text-align: center;
+}
+.stat-value { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
+.stat-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
+.heatmap {
+  display: grid; grid-template-columns: repeat(20, 1fr); gap: 3px;
+  margin-top: 12px;
+}
+.heat-cell {
+  aspect-ratio: 1; border-radius: 3px; background: var(--bg-elevated);
+}
+.heat-cell.m1 { background: #3b82f6; }
+.heat-cell.m2 { background: #ef4444; }
+.heat-cell.m3 { background: #a1a1aa; }
+.heat-cell.m4 { background: #f472b6; }
+.heat-cell.m5 { background: #fbbf24; }
+
+#editor-overlay, #viewer-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--bg); display: none; flex-direction: column;
+}
+#editor-overlay.open, #viewer-overlay.open { display: flex; }
+
+.overlay-header {
+  padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.overlay-title { font-weight: 600; }
+.editor-body { flex: 1; overflow-y: auto; padding: 20px; }
+.editor-title {
+  width: 100%; background: transparent; border: none; outline: none;
+  font-size: 1.5rem; font-weight: 600; color: var(--text); margin-bottom: 12px;
+  font-family: inherit;
+}
+.editor-content {
+  width: 100%; min-height: 280px; background: transparent; border: none; outline: none;
+  font-size: 1.05rem; line-height: 1.7; color: var(--text); resize: none;
+  font-family: inherit;
+}
+.mood-picker { display: flex; gap: 12px; margin: 16px 0; justify-content: center; }
+.mood-btn {
+  width: 48px; height: 48px; border-radius: 14px; font-size: 1.6rem;
+  background: var(--bg-elevated); border: 2px solid transparent;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: all 0.2s;
+}
+.mood-btn.active { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.1); }
+
+.tag-input {
+  width: 100%; background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 14px; color: var(--text); margin-top: 12px;
+  font-size: 0.9rem; outline: none;
+}
+.image-preview-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.img-preview {
+  width: 72px; height: 72px; border-radius: 10px; object-fit: cover; position: relative;
+}
+.img-remove {
+  position: absolute; top: -6px; right: -6px; width: 22px; height: 22px;
+  background: var(--danger); color: white; border-radius: 50%; font-size: 12px;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+
+.viewer-content { padding: 20px; flex: 1; overflow-y: auto; }
+.viewer-meta { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--text-muted); font-size: 0.9rem; }
+.viewer-title { font-size: 1.6rem; font-weight: 600; margin-bottom: 16px; line-height: 1.3; }
+.viewer-body { font-size: 1.05rem; line-height: 1.75; white-space: pre-wrap; }
+.viewer-images { display: flex; gap: 8px; overflow-x: auto; margin: 20px 0; padding-bottom: 8px; }
+.viewer-img { height: 200px; border-radius: 12px; object-fit: cover; flex-shrink: 0; cursor: pointer; }
+
+#img-modal {
+  position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.95);
+  display: none; align-items: center; justify-content: center;
+}
+#img-modal.open { display: flex; }
+#modal-img { max-width: 95%; max-height: 90%; object-fit: contain; border-radius: 8px; }
+
+.settings-group { margin-bottom: 28px; }
+.settings-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 0; border-bottom: 1px solid var(--border); cursor: pointer;
+}
+.settings-item:last-child { border-bottom: none; }
+.theme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+.theme-swatch {
+  height: 48px; border-radius: 12px; cursor: pointer; border: 2px solid transparent;
+  display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600;
+}
+.theme-swatch.active { border-color: var(--accent); }
+
+.btn {
+  padding: 12px 20px; border-radius: 12px; border: none; font-weight: 600;
+  font-size: 0.95rem; cursor: pointer; transition: all 0.15s; font-family: inherit;
+}
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:active { opacity: 0.85; }
+.btn-ghost { background: transparent; color: var(--text-secondary); }
+.btn-danger { background: rgba(248,113,113,0.15); color: var(--danger); }
+
+.empty-state {
+  text-align: center; padding: 60px 20px; color: var(--text-muted);
+}
+</style>
+
+  <!-- PWA Essential Settings (Auto-generated) -->
+  <link rel="manifest" href="manifest.json">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js');
+      });
+    }
+  </script>
+</head>
+<body>
+<!-- LOCK SCREEN -->
+<div id="lock-screen">
+  <div class="lock-logo">Lumina</div>
+  <div class="lock-sub">あなたのプライベートジャーナル</div>
+  <div class="pin-dots" id="pin-dots">
+    <div class="pin-dot"></div><div class="pin-dot"></div>
+    <div class="pin-dot"></div><div class="pin-dot"></div>
+  </div>
+  <div class="pin-pad" id="pin-pad"></div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header class="app-header">
+    <div class="header-title" id="header-title">Home</div>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="switchView('timeline')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </button>
+      <button class="icon-btn" onclick="switchView('settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="main-content" id="main-content">
+    <!-- HOME -->
+    <div class="view active" id="view-home">
+      <div class="greeting" id="greeting">こんにちは</div>
+      <div class="greeting-sub" id="greeting-sub">今日も素敵な一日を</div>
+      <div class="streak-badge" id="streak-badge" style="display:none;">🔥 <span id="streak-count">0</span>日連続</div>
+
+      <div class="on-this-day" id="on-this-day" style="display:none;">
+        <div class="on-this-day-label">📅 On This Day</div>
+        <div id="on-this-day-content"></div>
+      </div>
+
+      <div class="section-title">最近の日記</div>
+      <div id="recent-entries"></div>
+    </div>
+
+    <!-- TIMELINE -->
+    <div class="view" id="view-timeline">
+      <div class="search-bar">
+        <input class="search-input" id="search-input" placeholder="タイトル・本文・タグを検索..." oninput="renderTimeline()">
+      </div>
+      <div class="mood-filters" id="mood-filters">
+        <div class="mood-chip active" data-mood="all" onclick="setMoodFilter('all')">すべて</div>
+        <div class="mood-chip" data-mood="5" onclick="setMoodFilter(5)">🤩</div>
+        <div class="mood-chip" data-mood="4" onclick="setMoodFilter(4)">😊</div>
+        <div class="mood-chip" data-mood="3" onclick="setMoodFilter(3)">😐</div>
+        <div class="mood-chip" data-mood="2" onclick="setMoodFilter(2)">😡</div>
+        <div class="mood-chip" data-mood="1" onclick="setMoodFilter(1)">😭</div>
+      </div>
+      <div id="timeline-list"></div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div class="view" id="view-calendar">
+      <div class="cal-header">
+        <button class="icon-btn" onclick="changeMonth(-1)">‹</button>
+        <div style="font-weight:600" id="cal-month-label"></div>
+        <button class="icon-btn" onclick="changeMonth(1)">›</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div id="cal-day-entries" style="margin-top:24px;"></div>
+    </div>
+
+    <!-- GALLERY -->
+    <div class="view" id="view-gallery">
+      <div class="gallery-grid" id="gallery-grid"></div>
+    </div>
+
+    <!-- STATS -->
+    <div class="view" id="view-stats">
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-value" id="stat-total">0</div><div class="stat-label">総日記数</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-streak">0</div><div class="stat-label">最長連続</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-photos">0</div><div class="stat-label">写真枚数</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-this-month">0</div><div class="stat-label">今月</div></div>
+      </div>
+      <div class="section-title">過去100日ヒートマップ</div>
+      <div class="heatmap" id="heatmap"></div>
+      <div class="section-title" style="margin-top:28px;">気分の分布</div>
+      <canvas id="mood-chart" height="180"></canvas>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="view" id="view-settings">
+      <div class="settings-group">
+        <div class="section-title">外観</div>
+        <div class="theme-grid">
+          <div class="theme-swatch active" data-theme="dark" style="background:#0f0f12;color:#fff" onclick="setTheme('dark')">Dark</div>
+          <div class="theme-swatch" data-theme="light" style="background:#fafafa;color:#18181b" onclick="setTheme('light')">Light</div>
+          <div class="theme-swatch" data-theme="midnight" style="background:#0c1222;color:#93c5fd" onclick="setTheme('midnight')">Midnight</div>
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="section-title">データ</div>
+        <div class="settings-item" onclick="exportData()"><span>バックアップをエクスポート</span><span>→</span></div>
+        <div class="settings-item">
+          <span>データをインポート</span>
+          <label style="cursor:pointer;color:var(--accent)">選択<input type="file" accept=".json" style="display:none" onchange="importData(event)"></label>
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="section-title">セキュリティ</div>
+        <div class="settings-item" onclick="changePin()"><span>パスコードを変更</span><span>→</span></div>
+      </div>
+      <div class="settings-group">
+        <div class="section-title">危険な操作</div>
+        <button class="btn btn-danger" style="width:100%" onclick="resetAll()">すべてのデータを消去</button>
+      </div>
+      <div style="text-align:center;color:var(--text-muted);font-size:0.8rem;margin-top:40px;">
+        Lumina v1.0 · Fully Offline · Your data stays on this device
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-view="home" onclick="switchView('home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Home
+    </button>
+    <button class="nav-item" data-view="timeline" onclick="switchView('timeline')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Timeline
+    </button>
+    <button class="nav-item" data-view="calendar" onclick="switchView('calendar')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Calendar
+    </button>
+    <button class="nav-item" data-view="gallery" onclick="switchView('gallery')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      Gallery
+    </button>
+    <button class="nav-item" data-view="stats" onclick="switchView('stats')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+      Stats
+    </button>
+  </nav>
+
+  <!-- FAB -->
+  <button class="fab" onclick="openEditor()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+</div>
+
+<!-- EDITOR -->
+<div id="editor-overlay">
+  <div class="overlay-header">
+    <button class="btn btn-ghost" onclick="closeEditor()">キャンセル</button>
+    <div class="overlay-title">新しい日記</div>
+    <button class="btn btn-primary" onclick="saveEntry()">保存</button>
+  </div>
+  <div class="editor-body">
+    <input type="date" id="editor-date" style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);margin-bottom:16px;font-family:inherit;">
+    <input class="editor-title" id="editor-title" placeholder="タイトル（任意）">
+    <textarea class="editor-content" id="editor-content" placeholder="今日はどんな一日だった？"></textarea>
+    
+    <div class="section-title" style="margin-top:20px;">気分</div>
+    <div class="mood-picker" id="mood-picker">
+      <button class="mood-btn" data-mood="1" onclick="selectMood(1)">😭</button>
+      <button class="mood-btn" data-mood="2" onclick="selectMood(2)">😡</button>
+      <button class="mood-btn" data-mood="3" onclick="selectMood(3)">😐</button>
+      <button class="mood-btn" data-mood="4" onclick="selectMood(4)">😊</button>
+      <button class="mood-btn" data-mood="5" onclick="selectMood(5)">🤩</button>
+    </div>
+
+    <input class="tag-input" id="editor-tags" placeholder="タグ（カンマ区切り）例: 旅行, 仕事">
+    
+    <div style="margin-top:16px;">
+      <label class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        写真を追加
+        <input type="file" accept="image/*" multiple style="display:none" onchange="handleImages(event)">
+      </label>
+    </div>
+    <div class="image-preview-row" id="image-previews"></div>
+  </div>
+</div>
+
+<!-- VIEWER -->
+<div id="viewer-overlay">
+  <div class="overlay-header">
+    <button class="btn btn-ghost" onclick="closeViewer()">← 戻る</button>
+    <div></div>
+    <div style="display:flex;gap:8px;">
+      <button class="icon-btn" onclick="editCurrent()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      <button class="icon-btn" onclick="deleteCurrent()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+    </div>
+  </div>
+  <div class="viewer-content" id="viewer-content"></div>
+</div>
+
+<!-- IMAGE MODAL -->
+<div id="img-modal" onclick="closeImgModal()">
+  <img id="modal-img" src="">
+</div>
+
+<script>
+// ==================== DATA LAYER ====================
+const DB_NAME = 'LuminaDB';
+const DB_VERSION = 1;
+let db, entries = [], config = { pin: '0000', theme: 'dark', firstLaunch: true };
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const database = e.target.result;
+      if (!database.objectStoreNames.contains('entries')) {
+        const store = database.createObjectStore('entries', { keyPath: 'id' });
+        store.createIndex('date', 'date');
+      }
+      if (!database.objectStoreNames.contains('config')) {
+        database.createObjectStore('config', { keyPath: 'key' });
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(); };
+    req.onerror = e => reject(e);
+  });
+}
+
+async function loadAll() {
+  const tx = db.transaction(['entries', 'config'], 'readonly');
+  entries = await new Promise(r => {
+    const req = tx.objectStore('entries').getAll();
+    req.onsuccess = () => r(req.result || []);
+  });
+  const cfg = await new Promise(r => {
+    const req = tx.objectStore('config').get('main');
+    req.onsuccess = () => r(req.result);
+  });
+  if (cfg) config = { ...config, ...cfg };
+  entries.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+async function saveEntryToDB(entry) {
+  const tx = db.transaction('entries', 'readwrite');
+  await new Promise(r => { tx.objectStore('entries').put(entry); tx.oncomplete = r; });
+}
+
+async function deleteEntryFromDB(id) {
+  const tx = db.transaction('entries', 'readwrite');
+  await new Promise(r => { tx.objectStore('entries').delete(id); tx.oncomplete = r; });
+}
+
+async function saveConfig() {
+  const tx = db.transaction('config', 'readwrite');
+  await new Promise(r => { tx.objectStore('config').put({ key: 'main', ...config }); tx.oncomplete = r; });
+}
+
+// ==================== LOCK ====================
+let pinBuffer = '';
+function setupPinPad() {
+  const pad = document.getElementById('pin-pad');
+  const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+  pad.innerHTML = keys.map(k => `<button class="pin-btn ${k===''?'empty':''}" data-key="${k}">${k}</button>`).join('');
+  pad.addEventListener('click', e => {
+    const key = e.target.dataset.key;
+    if (!key) return;
+    if (key === '⌫') {
+      pinBuffer = pinBuffer.slice(0, -1);
+    } else if (pinBuffer.length < 4) {
+      pinBuffer += key;
+    }
+    updatePinDots();
+    if (pinBuffer.length === 4) {
+      if (pinBuffer === config.pin || (config.firstLaunch && pinBuffer === '0000')) {
+        unlock();
+      } else {
+        pinBuffer = '';
+        updatePinDots();
+        document.getElementById('pin-dots').style.animation = 'none';
+        setTimeout(() => document.getElementById('pin-dots').style.animation = 'shake 0.4s', 10);
+      }
+    }
+  });
+}
+function updatePinDots() {
+  document.querySelectorAll('.pin-dot').forEach((d, i) => d.classList.toggle('filled', i < pinBuffer.length));
+}
+function unlock() {
+  document.getElementById('lock-screen').classList.add('hidden');
+  document.getElementById('app').classList.add('active');
+  if (config.firstLaunch) {
+    config.firstLaunch = false;
+    config.pin = pinBuffer || '0000';
+    saveConfig();
+  }
+  renderAll();
+}
+
+// ==================== RENDER ====================
+function switchView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === name));
+  const titles = { home:'Home', timeline:'Timeline', calendar:'Calendar', gallery:'Gallery', stats:'Insights', settings:'Settings' };
+  document.getElementById('header-title').textContent = titles[name] || name;
+  if (name === 'timeline') renderTimeline();
+  if (name === 'calendar') renderCalendar();
+  if (name === 'gallery') renderGallery();
+  if (name === 'stats') renderStats();
+  if (name === 'home') renderHome();
+}
+
+function renderHome() {
+  const hour = new Date().getHours();
+  let greet = hour < 12 ? 'おはようございます' : hour < 18 ? 'こんにちは' : 'こんばんは';
+  document.getElementById('greeting').textContent = greet;
+  
+  const today = new Date().toISOString().slice(0,10);
+  const hasToday = entries.some(e => e.date === today);
+  document.getElementById('greeting-sub').textContent = hasToday ? '今日の記録、ありがとう' : '今日の気持ちを残してみませんか？';
+
+  const streak = calcStreak();
+  const badge = document.getElementById('streak-badge');
+  if (streak > 0) {
+    badge.style.display = 'inline-flex';
+    document.getElementById('streak-count').textContent = streak;
+  } else badge.style.display = 'none';
+
+  const otd = document.getElementById('on-this-day');
+  const past = findOnThisDay();
+  if (past.length) {
+    otd.style.display = 'block';
+    document.getElementById('on-this-day-content').innerHTML = past.map(e => `
+      <div class="entry-card" style="margin-top:8px;padding:0;background:none;border:none" onclick="openViewer(${e.id})">
+        <div class="entry-date">${e.date} · ${['','😭','😡','😐','😊','🤩'][e.mood]||''}</div>
+        <div class="entry-title">${e.title || '無題'}</div>
+      </div>
+    `).join('');
+  } else otd.style.display = 'none';
+
+  const recent = entries.slice(0, 5);
+  document.getElementById('recent-entries').innerHTML = recent.length ? recent.map(e => entryCard(e)).join('') :
+    `<div class="empty-state"><p>まだ日記がありません<br>右下の＋から書いてみましょう</p></div>`;
+}
+
+function entryCard(e) {
+  return `<div class="card entry-card" onclick="openViewer(${e.id})">
+    <span class="entry-mood">${['','😭','😡','😐','😊','🤩'][e.mood]||''}</span>
+    <div class="entry-date">${e.date}</div>
+    <div class="entry-title">${e.title || '無題'}</div>
+    <div class="entry-preview">${(e.content||'').replace(/<[^>]*>/g,'').slice(0,120)}</div>
+  </div>`;
+}
+
+function calcStreak() {
+  if (!entries.length) return 0;
+  const dates = new Set(entries.map(e => e.date));
+  let streak = 0;
+  let d = new Date();
+  for (let i = 0; i < 2; i++) {
+    const s = d.toISOString().slice(0,10);
+    if (dates.has(s)) break;
+    d.setDate(d.getDate() - 1);
+  }
+  while (true) {
+    const s = d.toISOString().slice(0,10);
+    if (dates.has(s)) { streak++; d.setDate(d.getDate() - 1); }
+    else break;
+  }
+  return streak;
+}
+
+function findOnThisDay() {
+  const now = new Date();
+  const md = `${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  return entries.filter(e => e.date.slice(5) === md && e.date.slice(0,4) !== String(now.getFullYear())).slice(0,3);
+}
+
+let moodFilter = 'all';
+function setMoodFilter(m) {
+  moodFilter = m;
+  document.querySelectorAll('.mood-chip').forEach(c => c.classList.toggle('active', c.dataset.mood == m));
+  renderTimeline();
+}
+
+function renderTimeline() {
+  const q = (document.getElementById('search-input').value || '').toLowerCase();
+  let list = entries.filter(e => {
+    if (moodFilter !== 'all' && e.mood != moodFilter) return false;
+    if (!q) return true;
+    const text = (e.title + ' ' + e.content + ' ' + (e.tags||[]).join(' ')).toLowerCase();
+    return text.includes(q);
+  });
+  document.getElementById('timeline-list').innerHTML = list.length ? list.map(e => entryCard(e)).join('') :
+    `<div class="empty-state"><p>該当する日記がありません</p></div>`;
+}
+
+let calDate = new Date();
+function changeMonth(delta) {
+  calDate.setMonth(calDate.getMonth() + delta);
+  renderCalendar();
+}
+function renderCalendar() {
+  const y = calDate.getFullYear(), m = calDate.getMonth();
+  document.getElementById('cal-month-label').textContent = `${y}年 ${m+1}月`;
+  const first = new Date(y, m, 1).getDay();
+  const days = new Date(y, m+1, 0).getDate();
+  const todayStr = new Date().toISOString().slice(0,10);
+  let html = ['日','月','火','水','木','金','土'].map(d => `<div class="cal-day-name">${d}</div>`).join('');
+  for (let i = 0; i < first; i++) html += `<div></div>`;
+  for (let d = 1; d <= days; d++) {
+    const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const has = entries.some(e => e.date === dateStr);
+    const isToday = dateStr === todayStr;
+    html += `<div class="cal-day ${has?'has-entry':''} ${isToday?'today':''}" onclick="showCalDay('${dateStr}')">${d}</div>`;
+  }
+  document.getElementById('cal-grid').innerHTML = html;
+  document.getElementById('cal-day-entries').innerHTML = '';
+}
+function showCalDay(date) {
+  const list = entries.filter(e => e.date === date);
+  document.getElementById('cal-day-entries').innerHTML = list.length ?
+    `<div class="section-title">${date}</div>` + list.map(e => entryCard(e)).join('') :
+    `<div class="empty-state"><p>${date}<br>この日の記録はありません</p>
+     <button class="btn btn-primary" style="margin-top:12px" onclick="openEditor('${date}')">この日に書く</button></div>`;
+}
+
+function renderGallery() {
+  const imgs = [];
+  entries.forEach(e => (e.images||[]).forEach((src) => imgs.push({src, id:e.id, date:e.date})));
+  document.getElementById('gallery-grid').innerHTML = imgs.length ?
+    imgs.map(img => `<img class="gallery-img" src="${img.src}" loading="lazy" onclick="openImgModal('${img.src}')">`).join('') :
+    `<div class="empty-state" style="grid-column:1/-1"><p>まだ写真がありません</p></div>`;
+}
+
+function renderStats() {
+  document.getElementById('stat-total').textContent = entries.length;
+  document.getElementById('stat-streak').textContent = calcStreak();
+  document.getElementById('stat-photos').textContent = entries.reduce((s, e) => s + (e.images || []).length, 0);
+  
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  document.getElementById('stat-this-month').textContent = entries.filter(e => e.date.startsWith(thisMonth)).length;
+
+  // Heatmap
+  const heat = document.getElementById('heatmap');
+  let heatHtml = '';
+  for (let i = 99; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const s = d.toISOString().slice(0, 10);
+    const entry = entries.find(x => x.date === s);
+    heatHtml += `<div class="heat-cell ${entry ? 'm' + entry.mood : ''}" title="${s}"></div>`;
+  }
+  heat.innerHTML = heatHtml;
+
+  // Mood Chart
+  const canvas = document.getElementById('mood-chart');
+  const ctx = canvas.getContext('2d');
+  
+  const counts = [0, 0, 0, 0, 0];
+  entries.forEach(e => {
+    if (e.mood >= 1 && e.mood <= 5) counts[e.mood - 1]++;
+  });
+  
+  const max = Math.max(...counts, 1);
+  const chartWidth = canvas.width = canvas.offsetWidth || 300;
+  const chartHeight = canvas.height = 180;
+  
+  ctx.clearRect(0, 0, chartWidth, chartHeight);
+  
+  const labels = ['😭', '😡', '😐', '😊', '🤩'];
+  const colors = ['#3b82f6', '#ef4444', '#a1a1aa', '#f472b6', '#fbbf24'];
+  const barWidth = (chartWidth - 60) / 5;
+  
+  counts.forEach((count, i) => {
+    const barHeight = (count / max) * (chartHeight - 40);
+    ctx.fillStyle = colors[i];
+    ctx.fillRect(
+      30 + i * barWidth + 8,
+      chartHeight - 30 - barHeight,
+      barWidth - 16,
+      barHeight
+    );
+    
+    ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-muted') || '#a1a1aa';
+    ctx.font = '16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(labels[i], 30 + i * barWidth + barWidth / 2, chartHeight - 8);
+  });
+}
+
+// ==================== EDITOR ====================
+let editingId = null, tempImages = [], selectedMood = 3;
+
+function openEditor(dateStr) {
+  editingId = null;
+  tempImages = [];
+  selectedMood = 3;
+  document.getElementById('editor-title').value = '';
+  document.getElementById('editor-content').value = '';
+  document.getElementById('editor-tags').value = '';
+  document.getElementById('editor-date').value = dateStr || new Date().toISOString().slice(0,10);
+  document.getElementById('image-previews').innerHTML = '';
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.toggle('active', b.dataset.mood == 3));
+  document.getElementById('editor-overlay').classList.add('open');
+}
+
+function closeEditor() {
+  document.getElementById('editor-overlay').classList.remove('open');
+}
+
+function selectMood(m) {
+  selectedMood = m;
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.toggle('active', b.dataset.mood == m));
+}
+
+async function handleImages(e) {
+  for (const file of e.target.files) {
+    if (!file.type.startsWith('image/')) continue;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const resized = await resizeImage(ev.target.result);
+      tempImages.push(resized);
+      renderImagePreviews();
+    };
+    reader.readAsDataURL(file);
+  }
+  e.target.value = '';
+}
+
+function resizeImage(base64, max = 800) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > h && w > max) { h *= max / w; w = max; }
+      else if (h > max) { w *= max / h; h = max; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.src = base64;
+  });
+}
+
+function renderImagePreviews() {
+  document.getElementById('image-previews').innerHTML = tempImages.map((src, i) => `
+    <div style="position:relative">
+      <img class="img-preview" src="${src}">
+      <div class="img-remove" onclick="tempImages.splice(${i},1);renderImagePreviews()">×</div>
+    </div>
+  `).join('');
+}
+
+async function saveEntry() {
+  const title = document.getElementById('editor-title').value.trim() || '無題';
+  const content = document.getElementById('editor-content').value.trim();
+  const date = document.getElementById('editor-date').value;
+  const tags = document.getElementById('editor-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+
+  if (!content && tempImages.length === 0) {
+    alert('内容を入力するか写真を追加してください');
+    return;
+  }
+
+  const entry = {
+    id: editingId || Date.now(),
+    title, content, date, tags, mood: selectedMood,
+    images: [...tempImages],
+    updatedAt: Date.now()
+  };
+
+  if (editingId) {
+    const idx = entries.findIndex(e => e.id === editingId);
+    if (idx !== -1) entries[idx] = entry;
+  } else {
+    entries.unshift(entry);
+  }
+  await saveEntryToDB(entry);
+  closeEditor();
+  renderAll();
+  openViewer(entry.id);
+}
+
+// ==================== VIEWER ====================
+let currentEntry = null;
+function openViewer(id) {
+  currentEntry = entries.find(e => e.id === id);
+  if (!currentEntry) return;
+  const e = currentEntry;
+  document.getElementById('viewer-content').innerHTML = `
+    <div class="viewer-meta">
+      <span>${e.date}</span>
+      <span>${['','😭 最悪','😡 怒り','😐 普通','😊 良好','🤩 最高'][e.mood]||''}</span>
+    </div>
+    <div class="viewer-title">${e.title}</div>
+    <div class="viewer-body">${e.content.replace(/\n/g,'<br>')}</div>
+    ${e.images && e.images.length ? `<div class="viewer-images">${e.images.map(src => `<img class="viewer-img" src="${src}" onclick="openImgModal('${src}')">`).join('')}</div>` : ''}
+    ${e.tags && e.tags.length ? `<div style="margin-top:16px">${e.tags.map(t => `<span style="background:var(--accent-soft);color:var(--accent);padding:4px 10px;border-radius:999px;font-size:0.8rem;margin-right:6px">#${t}</span>`).join('')}</div>` : ''}
+  `;
+  document.getElementById('viewer-overlay').classList.add('open');
+}
+function closeViewer() {
+  document.getElementById('viewer-overlay').classList.remove('open');
+  currentEntry = null;
+}
+function editCurrent() {
+  if (!currentEntry) return;
+  editingId = currentEntry.id;
+  tempImages = [...(currentEntry.images || [])];
+  selectedMood = currentEntry.mood || 3;
+  document.getElementById('editor-title').value = currentEntry.title || '';
+  document.getElementById('editor-content').value = currentEntry.content || '';
+  document.getElementById('editor-tags').value = (currentEntry.tags || []).join(', ');
+  document.getElementById('editor-date').value = currentEntry.date;
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.toggle('active', b.dataset.mood == selectedMood));
+  renderImagePreviews();
+  closeViewer();
+  document.getElementById('editor-overlay').classList.add('open');
+}
+async function deleteCurrent() {
+  if (!currentEntry || !confirm('この日記を削除しますか？')) return;
+  await deleteEntryFromDB(currentEntry.id);
+  entries = entries.filter(e => e.id !== currentEntry.id);
+  closeViewer();
+  renderAll();
+}
+
+function openImgModal(src) {
+  document.getElementById('modal-img').src = src;
+  document.getElementById('img-modal').classList.add('open');
+}
+function closeImgModal() {
+  document.getElementById('img-modal').classList.remove('open');
+}
+
+// ==================== SETTINGS ====================
+function setTheme(t) {
+  config.theme = t;
+  document.body.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+  if (t === 'midnight') {
+    document.documentElement.style.setProperty('--bg', '#0c1222');
+    document.documentElement.style.setProperty('--accent', '#93c5fd');
+  } else {
+    document.documentElement.style.removeProperty('--bg');
+    document.documentElement.style.removeProperty('--accent');
+  }
+  document.querySelectorAll('.theme-swatch').forEach(s => s.classList.toggle('active', s.dataset.theme === t));
+  saveConfig();
+}
+
+function exportData() {
+  const data = JSON.stringify({ entries, config }, null, 2);
+  const blob = new Blob([data], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `lumina_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
+async function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  try {
+    const data = JSON.parse(text);
+    if (!confirm('現在のデータを上書きしますか？')) return;
+    entries = data.entries || [];
+    if (data.config) config = { ...config, ...data.config };
+    const tx = db.transaction('entries', 'readwrite');
+    tx.objectStore('entries').clear();
+    for (const entr of entries) await saveEntryToDB(entr);
+    await saveConfig();
+    alert('インポート完了');
+    renderAll();
+  } catch {
+    alert('無効なファイルです');
+  }
+}
+
+function changePin() {
+  const current = prompt('現在のパスコードを入力');
+  if (current !== config.pin) { alert('不一致です'); return; }
+  const next = prompt('新しい4桁パスコード');
+  if (!next || next.length !== 4 || !/^\d+$/.test(next)) { alert('4桁の数字で入力してください'); return; }
+  config.pin = next;
+  saveConfig();
+  alert('変更しました');
+}
+
+async function resetAll() {
+  if (!confirm('本当にすべてのデータを消去しますか？この操作は取り消せません。')) return;
+  if (prompt('確認のため DELETE と入力') !== 'DELETE') return;
+  indexedDB.deleteDatabase(DB_NAME);
+  location.reload();
+}
+
+function renderAll() {
+  renderHome();
+  renderTimeline();
+  renderCalendar();
+  renderGallery();
+  renderStats();
+}
+
+// ==================== INIT ====================
+(async function init() {
+  await openDB();
+  await loadAll();
+  setupPinPad();
+  document.body.setAttribute('data-theme', config.theme === 'light' ? 'light' : 'dark');
+  
+  const style = document.createElement('style');
+  style.textContent = `@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }`;
+  document.head.appendChild(style);
+})();
+</script>
+</body>
+</html>
